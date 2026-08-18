@@ -1,0 +1,9 @@
+# Minimal single-node config for the local POC.
+# The security plugin is disabled here on purpose: this cluster is only ever
+# reachable from inside the compose network. Never expose port 9200 publicly
+# with this configuration - see docs/security-and-legal.md.
+cluster.name: api-discovery-poc
+node.name: opensearch-node1
+discovery.type: single-node
+bootstrap.memory_lock: true
+plugins.security.disabled: true

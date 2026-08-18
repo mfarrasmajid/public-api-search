@@ -1,0 +1,238 @@
+# Public API Discovery Engine - local development stack.
+#
+#   docker compose up -d                 # phase 1: search POC
+#   docker compose --profile crawler up -d   # + python crawler
+#   docker compose --profile workers up -d   # + queue worker & scheduler
+#   docker compose --profile tools up -d     # + OpenSearch Dashboards
+#
+# Everything here is single-node on purpose. See docs/architecture.md.
+
+name: api-discovery
+
+services:
+  # ---------------------------------------------------------------- database
+  postgres:
+    # pgvector image = plain PostgreSQL 16 + the vector extension already
+    # compiled in, so phase 5 needs no image change.
+    image: pgvector/pgvector:pg16
+    container_name: apidisc-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-api_discovery}
+      POSTGRES_USER: ${DB_USERNAME:-api_discovery}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+      # Speeds up the very first boot on a dev machine.
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres:/docker-entrypoint-initdb.d:ro
+    ports:
+      # Exposed for DBeaver/psql. Bound to localhost only.
+      - "127.0.0.1:${DB_PORT_HOST:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-api_discovery} -d ${DB_DATABASE:-api_discovery}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [apidisc]
+
+  # ----------------------------------------------------------- search engine
+  opensearch:
+    image: opensearchproject/opensearch:2.17.1
+    container_name: apidisc-opensearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      # 512m heap is enough for a few thousand documents and keeps the POC
+      # runnable on a 16 GB laptop. Raise it before loading 100k+ APIs.
+      - "OPENSEARCH_JAVA_OPTS=-Xms${OPENSEARCH_HEAP:-512m} -Xmx${OPENSEARCH_HEAP:-512m}"
+      - DISABLE_SECURITY_PLUGIN=true
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 65536, hard: 65536 }
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    ports:
+      - "127.0.0.1:${OPENSEARCH_PORT_HOST:-9200}:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 60s
+    networks: [apidisc]
+
+  # ------------------------------------------------------------ cache/queue
+  redis:
+    image: redis:7-alpine
+    container_name: apidisc-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis-data:/data
+    ports:
+      - "127.0.0.1:${REDIS_PORT_HOST:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [apidisc]
+
+  # ---------------------------------------------------------------- backend
+  backend:
+    build:
+      context: ./infrastructure/docker/php
+      dockerfile: Dockerfile
+    image: apidisc/backend:local
+    container_name: apidisc-backend
+    restart: unless-stopped
+    environment: &backend-env
+      APP_NAME: "Public API Discovery Engine"
+      APP_ENV: ${APP_ENV:-local}
+      APP_DEBUG: ${APP_DEBUG:-true}
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Jakarta}
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-api_discovery}
+      DB_USERNAME: ${DB_USERNAME:-api_discovery}
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+      OPENSEARCH_HOST: opensearch
+      OPENSEARCH_PORT: 9200
+      OPENSEARCH_SCHEME: http
+      OPENSEARCH_INDEX: ${OPENSEARCH_INDEX:-apis}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CACHE_STORE: ${CACHE_STORE:-redis}
+      QUEUE_CONNECTION: ${QUEUE_CONNECTION:-redis}
+      SESSION_DRIVER: file
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
+      # First-boot automation, disable once you manage migrations yourself.
+      AUTO_MIGRATE: ${AUTO_MIGRATE:-true}
+      AUTO_SEED: ${AUTO_SEED:-true}
+      AUTO_INDEX: ${AUTO_INDEX:-true}
+    volumes:
+      - ./backend:/var/www/html
+      - backend-vendor:/var/www/html/vendor
+    depends_on:
+      postgres: { condition: service_healthy }
+      opensearch: { condition: service_healthy }
+      redis: { condition: service_started }
+    networks: [apidisc]
+
+  # ------------------------------------------------------------ reverse proxy
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: apidisc-nginx
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    volumes:
+      - ./infrastructure/docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      # nginx serves Laravel's public/ directly and forwards .php to php-fpm.
+      - ./backend:/var/www/html:ro
+    depends_on:
+      - backend
+      - frontend
+    networks: [apidisc]
+
+  # --------------------------------------------------------------- frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../infrastructure/docker/frontend/Dockerfile
+      target: dev
+    image: apidisc/frontend:local
+    container_name: apidisc-frontend
+    restart: unless-stopped
+    environment:
+      # Same origin through nginx, so the browser just calls /api/...
+      VITE_API_BASE_URL: ""
+      VITE_HMR_CLIENT_PORT: ${APP_PORT:-8080}
+      VITE_PROXY_TARGET: http://nginx
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+    ports:
+      # Direct access to Vite, useful when debugging the proxy.
+      - "127.0.0.1:${VITE_PORT:-5173}:5173"
+    networks: [apidisc]
+
+  # ---------------------------------------------------- crawler (profile)
+  crawler:
+    build:
+      context: ./crawler
+      dockerfile: ../infrastructure/docker/crawler/Dockerfile
+    image: apidisc/crawler:local
+    container_name: apidisc-crawler
+    profiles: [crawler]
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${DB_USERNAME:-api_discovery}:${DB_PASSWORD:-secret}@postgres:5432/${DB_DATABASE:-api_discovery}
+      CRAWLER_REQUESTS_PER_MINUTE: ${CRAWLER_REQUESTS_PER_MINUTE:-20}
+      CRAWLER_RESPECT_ROBOTS: ${CRAWLER_RESPECT_ROBOTS:-true}
+      CRAWLER_USER_AGENT: ${CRAWLER_USER_AGENT:-PublicApiDiscoveryBot/0.1}
+    volumes:
+      - ./crawler:/app
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [apidisc]
+
+  # ---------------------------------------------------- workers (profile)
+  queue:
+    image: apidisc/backend:local
+    container_name: apidisc-queue
+    profiles: [workers]
+    restart: unless-stopped
+    environment: *backend-env
+    volumes:
+      - ./backend:/var/www/html
+      - backend-vendor:/var/www/html/vendor
+    depends_on:
+      backend: { condition: service_started }
+    command: ["php", "artisan", "queue:work", "--tries=3", "--timeout=120"]
+    networks: [apidisc]
+
+  scheduler:
+    image: apidisc/backend:local
+    container_name: apidisc-scheduler
+    profiles: [workers]
+    restart: unless-stopped
+    environment: *backend-env
+    volumes:
+      - ./backend:/var/www/html
+      - backend-vendor:/var/www/html/vendor
+    depends_on:
+      backend: { condition: service_started }
+    command: ["php", "artisan", "schedule:work"]
+    networks: [apidisc]
+
+  # ------------------------------------------------------ tooling (profile)
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.17.1
+    container_name: apidisc-dashboards
+    profiles: [tools]
+    restart: unless-stopped
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
+    ports:
+      - "127.0.0.1:${DASHBOARDS_PORT:-5601}:5601"
+    depends_on:
+      opensearch: { condition: service_healthy }
+    networks: [apidisc]
+
+volumes:
+  postgres-data:
+  opensearch-data:
+  redis-data:
+  backend-vendor:
+  frontend-node-modules:
+
+networks:
+  apidisc:
+    driver: bridge
