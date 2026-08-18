@@ -1,0 +1,5 @@
+.env
+.DS_Store
+*.log
+
+# per-service ignores live in backend/.gitignore, frontend/.gitignore, crawler/.gitignore
