@@ -39,11 +39,31 @@ Sengaja pendek — Scrapy baru dipertimbangkan kalau memang butuh crawling bersk
 
 ### Jalur Docker (disarankan)
 
+> **Crawler tidak ikut `docker compose up -d`.** Ia berada di profile terpisah
+> agar stack Phase 1 tetap ringan, jadi container-nya baru dibuat ketika profile
+> `crawler` diaktifkan. Kalau `docker compose ps` tidak menampilkan
+> `apidisc-crawler`, itu sebabnya — bukan error.
+
 ```bash
-# Crawler berada di profile terpisah agar tidak ikut menyala saat POC search saja
+# 1. Nyalakan service-nya (build image pertama kali: beberapa menit)
 docker compose --profile crawler up -d
-docker compose exec crawler python -m crawler --help
+
+# 2. Pastikan sudah jalan
+docker compose ps crawler          # STATUS harus "Up"
+
+# 3. Pakai
+docker compose --profile crawler exec crawler python -m crawler --help
 ```
+
+Agar tidak perlu mengetik `--profile crawler` setiap kali, aktifkan permanen
+lewat `.env` di root repo:
+
+```bash
+COMPOSE_PROFILES=crawler
+```
+
+Setelah itu `docker compose up -d` dan `docker compose exec crawler ...`
+sudah otomatis menyertakan crawler.
 
 ### Jalur lokal
 
@@ -62,27 +82,27 @@ python -m crawler --help
 
 ```bash
 # Lihat sumber yang tersedia
-docker compose exec crawler python -m crawler sources
+docker compose --profile crawler exec crawler python -m crawler sources
 
 # Uji parser dulu tanpa menyentuh database
-docker compose exec crawler python -m crawler crawl public-apis --limit 20 --dry-run
+docker compose --profile crawler exec crawler python -m crawler crawl public-apis --limit 20 --dry-run
 
 # Crawl beneran (Phase 2 - target 1.000 API)
-docker compose exec crawler python -m crawler crawl public-apis --limit 500
-docker compose exec crawler python -m crawler crawl apis-guru --limit 300
+docker compose --profile crawler exec crawler python -m crawler crawl public-apis --limit 500
+docker compose --profile crawler exec crawler python -m crawler crawl apis-guru --limit 300
 
 # Wajib setelah crawl: perbarui index
 docker compose exec backend php artisan apis:score --reindex
 
 # Phase 3 - temukan spec OpenAPI dan ekstrak endpoint
-docker compose exec crawler python -m crawler openapi --limit 20
+docker compose --profile crawler exec crawler python -m crawler openapi --limit 20
 
 # Phase 4 - health check batch (paling lama tidak dicek didahulukan)
-docker compose exec crawler python -m crawler health --limit 50
+docker compose --profile crawler exec crawler python -m crawler health --limit 50
 docker compose exec backend php artisan apis:score --reindex
 
 # Ekspor ke JSON, lalu impor lewat backend
-docker compose exec crawler python -m crawler export data/apis.json --source public-apis
+docker compose --profile crawler exec crawler python -m crawler export data/apis.json --source public-apis
 docker compose exec backend php artisan apis:import ../crawler/data/apis.json --reindex
 ```
 
@@ -149,9 +169,9 @@ Baca [`../docs/security-and-legal.md`](../docs/security-and-legal.md) sebelum me
 ## 7. Testing & lint
 
 ```bash
-docker compose exec crawler pytest -q
-docker compose exec crawler ruff check src tests
-docker compose exec crawler ruff check --fix src tests
+docker compose --profile crawler exec crawler pytest -q
+docker compose --profile crawler exec crawler ruff check src tests
+docker compose --profile crawler exec crawler ruff check --fix src tests
 ```
 
 Test sengaja tidak menyentuh jaringan maupun database: parser diuji dengan fixture,

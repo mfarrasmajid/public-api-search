@@ -237,11 +237,17 @@ Tanpa `make`, semua perintah setara ada di masing-masing README folder.
 
 ### Menambah data lebih banyak (Phase 2)
 
+Crawler sengaja tidak ikut `docker compose up -d` (profile terpisah, agar stack
+Phase 1 tetap ringan), jadi nyalakan dulu profile-nya:
+
 ```bash
-docker compose --profile crawler up -d
-docker compose exec crawler python -m crawler crawl public-apis --limit 500
-docker compose exec backend php artisan search:reindex
+docker compose --profile crawler up -d     # build + jalankan container crawler
+docker compose ps crawler                  # pastikan STATUS "Up"
+docker compose --profile crawler exec crawler python -m crawler crawl public-apis --limit 500
+docker compose exec backend php artisan apis:score --reindex
 ```
+
+Atau set `COMPOSE_PROFILES=crawler` di `.env` supaya crawler selalu ikut naik.
 
 Detail: [`crawler/README.md`](crawler/README.md).
 

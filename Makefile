@@ -6,7 +6,7 @@ COMPOSE := docker compose
 .DEFAULT_GOAL := help
 .PHONY: help up down restart logs ps build shell tinker migrate fresh seed reindex \
         index-status score test test-backend test-crawler lint crawl health openapi \
-        psql search clean
+        crawler-up crawler-shell psql search clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -64,6 +64,14 @@ psql: ## Open a psql session
 	$(COMPOSE) exec postgres psql -U $${DB_USERNAME:-api_discovery} -d $${DB_DATABASE:-api_discovery}
 
 # --- crawler (profile: crawler) -------------------------------------------
+# Crawler tidak ikut `make up`; nyalakan dulu dengan `make crawler-up`.
+crawler-up: ## Build & jalankan container crawler (profile: crawler)
+	$(COMPOSE) --profile crawler up -d crawler
+	$(COMPOSE) ps crawler
+
+crawler-shell: ## Shell di dalam container crawler
+	$(COMPOSE) --profile crawler exec crawler bash
+
 crawl: ## Crawl the public-apis directory (SOURCE=public-apis LIMIT=200)
 	$(COMPOSE) --profile crawler exec crawler python -m crawler crawl $${SOURCE:-public-apis} --limit $${LIMIT:-200}
 

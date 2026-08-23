@@ -78,6 +78,8 @@ docker compose logs --tail=50 backend
 
 | Gejala | Solusi |
 |---|---|
+| `apidisc-crawler` tidak ada di `docker compose ps` | crawler ada di profile `crawler`, jadi tidak ikut `docker compose up -d`. Jalankan `docker compose --profile crawler up -d`, atau set `COMPOSE_PROFILES=crawler` di `.env` |
+| `no such service: crawler` / `service "crawler" is not running` | sama seperti di atas — profile belum aktif saat menjalankan `exec` |
 | `PermissionError: Blocked by robots.txt` | perilaku benar; pilih sumber lain |
 | Sangat lambat | rate limit disengaja; naikkan `CRAWLER_REQUESTS_PER_MINUTE` seperlunya |
 | Hasil crawl tidak muncul di search | `php artisan search:reindex` |
