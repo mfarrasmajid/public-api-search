@@ -11,6 +11,18 @@ docker compose logs --tail=50 backend
 
 ---
 
+## Khusus Windows
+
+| Gejala | Penyebab | Solusi |
+|---|---|---|
+| `pull access denied for apidisc/backend` / `apidisc/frontend` | Compose mencoba pull image lokal sebelum build | **Bukan error.** Build tetap berjalan setelahnya. Sejak `pull_policy: build` ditambahkan, peringatan ini tidak muncul lagi |
+| `/usr/bin/env: 'bash\r': No such file or directory` | checkout Windows mengubah `entrypoint.sh` jadi CRLF | `.gitattributes` sudah memaksa LF. Untuk clone lama: `git pull` lalu `git rm --cached -r . && git reset --hard` |
+| Backend container exit langsung setelah build | biasanya sama dengan kasus CRLF di atas | `docker compose logs backend` untuk memastikan |
+| Bind mount lambat / file tidak ter-reload | project berada di drive Windows, bukan WSL | taruh repo di dalam WSL2 (`\\wsl$\Ubuntu\home\...`) untuk I/O jauh lebih cepat |
+| OpenSearch gagal start | memori WSL2 kurang | buat `%USERPROFILE%\.wslconfig` berisi `[wsl2]` dan `memory=8GB`, lalu `wsl --shutdown` |
+
+---
+
 ## Instalasi & startup
 
 | Gejala | Penyebab | Solusi |

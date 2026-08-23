@@ -87,6 +87,9 @@ services:
       context: ./infrastructure/docker/php
       dockerfile: Dockerfile
     image: apidisc/backend:local
+    # Build locally instead of trying (and failing) to pull apidisc/* from
+    # Docker Hub - these images are never published to a registry.
+    pull_policy: build
     container_name: apidisc-backend
     restart: unless-stopped
     environment: &backend-env
@@ -147,6 +150,7 @@ services:
       dockerfile: ../infrastructure/docker/frontend/Dockerfile
       target: dev
     image: apidisc/frontend:local
+    pull_policy: build
     container_name: apidisc-frontend
     restart: unless-stopped
     environment:
@@ -168,6 +172,7 @@ services:
       context: ./crawler
       dockerfile: ../infrastructure/docker/crawler/Dockerfile
     image: apidisc/crawler:local
+    pull_policy: build
     container_name: apidisc-crawler
     profiles: [crawler]
     restart: unless-stopped
@@ -184,7 +189,11 @@ services:
 
   # ---------------------------------------------------- workers (profile)
   queue:
+    build:
+      context: ./infrastructure/docker/php
+      dockerfile: Dockerfile
     image: apidisc/backend:local
+    pull_policy: build
     container_name: apidisc-queue
     profiles: [workers]
     restart: unless-stopped
@@ -198,7 +207,11 @@ services:
     networks: [apidisc]
 
   scheduler:
+    build:
+      context: ./infrastructure/docker/php
+      dockerfile: Dockerfile
     image: apidisc/backend:local
+    pull_policy: build
     container_name: apidisc-scheduler
     profiles: [workers]
     restart: unless-stopped
