@@ -71,7 +71,7 @@ Prinsip yang dipegang (sesuai konteks project):
 
 ```
 public-api-search/
-├── backend/          Laravel 11 — REST + Search API, indexer, quality score   → backend/README.md
+├── backend/          Laravel 12 — REST + Search API, indexer, quality score   → backend/README.md
 ├── crawler/          Python 3.12 — discovery, OpenAPI parser, health checker  → crawler/README.md
 ├── frontend/         React 18 + Vite — UI pencarian                           → frontend/README.md
 ├── infrastructure/   Dockerfile, konfigurasi nginx/opensearch/postgres        → infrastructure/README.md

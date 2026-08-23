@@ -1,4 +1,4 @@
-# Backend — Laravel 11
+# Backend — Laravel 12
 
 Service ini adalah **otak aplikasi**: pemilik data, penyedia REST/Search API, dan
 satu-satunya komponen yang boleh menulis ke OpenSearch.
@@ -29,6 +29,23 @@ Kalau ingin menjalankan langsung di host (opsional, untuk IDE/debugging):
 | PostgreSQL client | 14+ | opsional, untuk `psql` |
 
 Cek ekstensi PHP: `php -m | grep -E 'pdo_pgsql|intl|zip'`
+
+---
+
+### Catatan: platform pin
+
+`composer.json` mengunci `config.platform.php` ke **8.3.0**, menyamai PHP di
+image `php:8.3-fpm-alpine`. Tanpa ini, `composer.lock` akan mengikuti versi PHP
+milik siapa pun yang terakhir menjalankan `composer update` — dan lock yang
+dibuat di host PHP 8.4 akan menolak dipasang di dalam container:
+
+```
+Your lock file does not contain a compatible set of packages.
+symfony/clock v8.1.0 requires php >=8.4.1 -> your php version (8.3.33) does not satisfy that requirement.
+```
+
+Kalau nanti image dinaikkan ke PHP 8.4, ubah `platform.php` bersamaan lalu
+jalankan `composer update`.
 
 ---
 
