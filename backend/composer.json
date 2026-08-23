@@ -2,7 +2,12 @@
     "name": "public-api-search/backend",
     "type": "project",
     "description": "Public API Discovery Engine - Laravel backend (REST + Search API).",
-    "keywords": ["laravel", "opensearch", "search", "public-api"],
+    "keywords": [
+        "laravel",
+        "opensearch",
+        "search",
+        "public-api"
+    ],
     "license": "MIT",
     "require": {
         "php": "^8.2",
@@ -49,6 +54,9 @@
         "allow-plugins": {
             "pestphp/pest-plugin": true,
             "php-http/discovery": true
+        },
+        "platform": {
+            "php": "8.3.0"
         }
     },
     "minimum-stability": "stable",
