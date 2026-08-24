@@ -244,8 +244,12 @@ Phase 1 tetap ringan), jadi nyalakan dulu profile-nya:
 docker compose --profile crawler up -d     # build + jalankan container crawler
 docker compose ps crawler                  # pastikan STATUS "Up"
 docker compose --profile crawler exec crawler python -m crawler crawl public-apis --limit 500
+docker compose --profile crawler exec crawler python -m crawler crawl data-go-id --limit 200
 docker compose exec backend php artisan apis:score --reindex
 ```
+
+Sumber yang tersedia: `public-apis`, `apis-guru`, dan dua direktori pemerintah
+Indonesia berbasis CKAN — `data-go-id` (Satu Data Indonesia) dan `data-jakarta`.
 
 Atau set `COMPOSE_PROFILES=crawler` di `.env` supaya crawler selalu ikut naik.
 

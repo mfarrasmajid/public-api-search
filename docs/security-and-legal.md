@@ -26,6 +26,15 @@ Dokumen ini mengikat untuk semua kode di repo ini, terutama crawler.
 Health checker hanya memakai `HEAD` lalu `GET` sebagai cadangan, dan tidak pernah
 mengirim request yang mengubah state (`health_checker.SAFE_METHODS`).
 
+### Catatan khusus portal pemerintah
+
+Portal seperti data.go.id dan data.jakarta.go.id adalah infrastruktur publik dengan
+kapasitas terbatas, dan crawl CKAN bersifat dipaginasi (banyak request ke satu host).
+Karena itu rate limit-nya disetel lebih rendah (10 request/menit di `crawl_sources`)
+dan `PAGE_SIZE` dibatasi 100 baris per panggilan. Jangan menaikkannya tanpa alasan;
+patuhi juga syarat penggunaan dan lisensi tiap dataset (kolom `license` diisi dari
+`license_title` CKAN).
+
 ## 2. Terms of Service & lisensi
 
 - Simpan selalu `source` dan `source_url` untuk setiap record — itulah jejak atribusi.

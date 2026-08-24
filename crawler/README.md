@@ -91,6 +91,10 @@ docker compose --profile crawler exec crawler python -m crawler crawl public-api
 docker compose --profile crawler exec crawler python -m crawler crawl public-apis --limit 500
 docker compose --profile crawler exec crawler python -m crawler crawl apis-guru --limit 300
 
+# Direktori pemerintah Indonesia (portal CKAN)
+docker compose --profile crawler exec crawler python -m crawler crawl data-go-id --limit 200
+docker compose --profile crawler exec crawler python -m crawler crawl data-jakarta --limit 200
+
 # Wajib setelah crawl: perbarui index
 docker compose exec backend php artisan apis:score --reindex
 
@@ -116,7 +120,61 @@ crawl  →  openapi  →  health  →  apis:score --reindex
 
 ---
 
-## 4. Struktur folder
+## 4. Sumber yang tersedia
+
+| Slug | Portal | Cakupan | Catatan |
+|---|---|---|---|
+| `public-apis` | github.com/public-apis/public-apis | global, ~1.400 API | satu file README di-parse lokal |
+| `apis-guru` | apis.guru | global, ribuan API | tiap entri sudah membawa URL spec OpenAPI |
+| `data-go-id` | Satu Data Indonesia | **API pemerintah Indonesia** | portal CKAN, dipaginasi |
+| `data-jakarta` | Open Data Jakarta | **API Pemprov DKI Jakarta** | portal CKAN, dipaginasi |
+
+### Tentang portal CKAN (`data-go-id`, `data-jakarta`)
+
+Portal open data pemerintah mengatalogkan **dataset**, bukan API — mayoritas isinya
+berkas CSV/XLSX yang tidak layak masuk mesin pencari *API*. Karena itu `ckan.py`
+hanya menyimpan dataset yang benar-benar punya endpoint yang bisa dipanggil:
+
+1. resource yang ditopang **CKAN datastore** → dipetakan ke endpoint
+   `/api/3/action/datastore_search?resource_id=...` yang memang bisa di-query;
+2. resource dengan format API (`JSON`, `GeoJSON`, `WMS`, `WFS`, `OData`, …);
+3. resource yang URL-nya jelas menunjuk endpoint (mengandung `/api/`, `/wfs`, dst).
+
+Sisanya dibuang. **Wajar kalau dari 1.000 dataset hanya puluhan yang tersimpan** —
+itu filternya bekerja, bukan error. Selalu jalankan `--dry-run` dulu untuk melihat
+proporsinya:
+
+```bash
+docker compose --profile crawler exec crawler python -m crawler crawl data-go-id --limit 50 --dry-run
+```
+
+Slug disimpan dengan awalan nama portal (`data-go-id-<nama-dataset>`) supaya dua
+portal yang menerbitkan dataset dengan judul sama tidak saling menimpa.
+
+> **Belum diverifikasi ke portal hidup.** Parser ini ditulis mengikuti spesifikasi
+> CKAN 3 Action API dan diuji dengan fixture serta HTTP tiruan, tetapi portal
+> `data.go.id` / `data.jakarta.go.id` tidak dapat dijangkau dari environment
+> tempat kode ini dikembangkan. Jalankan `--dry-run` sekali untuk memastikan
+> bentuk responsnya cocok sebelum menulis ke database.
+
+### Menambah portal CKAN lain
+
+Portal pemerintah daerah lain umumnya juga CKAN. Cukup turunkan kelasnya:
+
+```python
+class DataBandungSource(CkanSource):
+    slug = "data-bandung"
+    name = "Open Data Bandung"
+    portal_url = "https://data.bandung.go.id"
+    url = "https://data.bandung.go.id/api/3/action/package_search"
+    country = "Indonesia"
+```
+
+lalu daftarkan di `sources/__init__.py` dan `CrawlSourceSeeder.php`.
+
+---
+
+## 5. Struktur folder
 
 ```
 crawler/
@@ -128,7 +186,8 @@ crawler/
 │   ├── sources/
 │   │   ├── base.py               kontrak Source + gerbang robots/rate-limit
 │   │   ├── public_apis.py        parser markdown public-apis/public-apis
-│   │   └── apis_guru.py          direktori APIs.guru (sudah membawa URL spec)
+│   │   ├── apis_guru.py          direktori APIs.guru (sudah membawa URL spec)
+│   │   └── ckan.py               portal CKAN: data.go.id & data.jakarta.go.id
 │   ├── pipelines/
 │   │   ├── openapi_parser.py     discovery spec + ekstraksi endpoint (JSON & YAML)
 │   │   └── health_checker.py     DNS, TLS, HTTP; hanya GET/HEAD
@@ -138,7 +197,7 @@ crawler/
 
 ---
 
-## 5. Menambah sumber baru
+## 6. Menambah sumber baru
 
 1. Buat `src/crawler/sources/nama_sumber.py`, turunkan dari `Source`.
 2. Implementasikan `fetch()` yang mengembalikan `list[ApiRecord]` — **jangan** menulis ke database di sini.
@@ -150,7 +209,7 @@ Semua request keluar wajib lewat `self.get(url)` supaya robots.txt dan rate limi
 
 ---
 
-## 6. Aturan main (penting)
+## 7. Aturan main (penting)
 
 | Boleh | Tidak boleh |
 |---|---|
@@ -166,7 +225,7 @@ Baca [`../docs/security-and-legal.md`](../docs/security-and-legal.md) sebelum me
 
 ---
 
-## 7. Testing & lint
+## 8. Testing & lint
 
 ```bash
 docker compose --profile crawler exec crawler pytest -q
@@ -179,7 +238,7 @@ Test sengaja tidak menyentuh jaringan maupun database: parser diuji dengan fixtu
 
 ---
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Gejala | Solusi |
 |---|---|

@@ -33,7 +33,8 @@ Yang perlu dikerjakan:
 
 - [ ] Jalankan crawl penuh, periksa kualitas hasil normalisasi
 - [ ] Perbaiki dedupe untuk nama yang sama tapi API berbeda (saat ini saling menimpa lewat slug)
-- [ ] Tambah sumber ketiga (mis. direktori API pemerintah Indonesia)
+- [x] Tambah sumber ketiga: direktori pemerintah Indonesia berbasis CKAN
+      (`data-go-id`, `data-jakarta`) — parser selesai, **belum diverifikasi ke portal hidup**
 - [ ] Jadwalkan crawl mingguan lewat profile `workers`
 
 **Selesai bila:** ≥1.000 API di database, crawl ulang tidak menghasilkan duplikat,
