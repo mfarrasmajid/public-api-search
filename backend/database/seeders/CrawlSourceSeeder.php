@@ -30,6 +30,25 @@ class CrawlSourceSeeder extends Seeder
                 'rate_limit_per_minute' => 20,
                 'config' => ['parser' => 'apis_guru'],
             ],
+            [
+                // Satu Data Indonesia. CKAN portals are paginated, so the rate
+                // limit is deliberately low: a full crawl is many requests to
+                // one government host.
+                'name' => 'Satu Data Indonesia (data.go.id)',
+                'slug' => 'data-go-id',
+                'type' => 'directory',
+                'url' => 'https://data.go.id/api/3/action/package_search',
+                'rate_limit_per_minute' => 10,
+                'config' => ['parser' => 'ckan', 'portal_url' => 'https://data.go.id', 'country' => 'Indonesia'],
+            ],
+            [
+                'name' => 'Open Data Jakarta (data.jakarta.go.id)',
+                'slug' => 'data-jakarta',
+                'type' => 'directory',
+                'url' => 'https://data.jakarta.go.id/api/3/action/package_search',
+                'rate_limit_per_minute' => 10,
+                'config' => ['parser' => 'ckan', 'portal_url' => 'https://data.jakarta.go.id', 'country' => 'Indonesia'],
+            ],
         ];
 
         foreach ($sources as $source) {

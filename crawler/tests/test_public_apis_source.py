@@ -18,7 +18,7 @@ API | Description | Auth | HTTPS | CORS
 
 
 def test_parses_rows_with_their_category():
-    records = PublicApisSource.parse(PublicApisSource, MARKDOWN)  # type: ignore[arg-type]
+    records = PublicApisSource().parse(MARKDOWN)
 
     assert len(records) == 3
     assert records[0].name == "Open-Meteo"
@@ -27,7 +27,7 @@ def test_parses_rows_with_their_category():
 
 
 def test_normalises_authentication_and_flags():
-    records = PublicApisSource.parse(PublicApisSource, MARKDOWN)  # type: ignore[arg-type]
+    records = PublicApisSource().parse(MARKDOWN)
     by_name = {record.name: record for record in records}
 
     assert by_name["Open-Meteo"].authentication_type == "none"
@@ -37,10 +37,10 @@ def test_normalises_authentication_and_flags():
 
 
 def test_slug_is_derived_from_name():
-    records = PublicApisSource.parse(PublicApisSource, MARKDOWN)  # type: ignore[arg-type]
+    records = PublicApisSource().parse(MARKDOWN)
     assert records[0].slug == "open-meteo"
 
 
 def test_malformed_rows_are_skipped_not_fatal():
-    records = PublicApisSource.parse(PublicApisSource, MARKDOWN)  # type: ignore[arg-type]
+    records = PublicApisSource().parse(MARKDOWN)
     assert all(record.name for record in records)

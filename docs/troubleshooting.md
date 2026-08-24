@@ -11,6 +11,18 @@ docker compose logs --tail=50 backend
 
 ---
 
+## Khusus Windows
+
+| Gejala | Penyebab | Solusi |
+|---|---|---|
+| `pull access denied for apidisc/backend` / `apidisc/frontend` | Compose mencoba pull image lokal sebelum build | **Bukan error.** Build tetap berjalan setelahnya. Sejak `pull_policy: build` ditambahkan, peringatan ini tidak muncul lagi |
+| `/usr/bin/env: 'bash\r': No such file or directory` | checkout Windows mengubah `entrypoint.sh` jadi CRLF | `.gitattributes` sudah memaksa LF. Untuk clone lama: `git pull` lalu `git rm --cached -r . && git reset --hard` |
+| Backend container exit langsung setelah build | biasanya sama dengan kasus CRLF di atas | `docker compose logs backend` untuk memastikan |
+| Bind mount lambat / file tidak ter-reload | project berada di drive Windows, bukan WSL | taruh repo di dalam WSL2 (`\\wsl$\Ubuntu\home\...`) untuk I/O jauh lebih cepat |
+| OpenSearch gagal start | memori WSL2 kurang | buat `%USERPROFILE%\.wslconfig` berisi `[wsl2]` dan `memory=8GB`, lalu `wsl --shutdown` |
+
+---
+
 ## Instalasi & startup
 
 | Gejala | Penyebab | Solusi |
@@ -66,10 +78,15 @@ docker compose logs --tail=50 backend
 
 | Gejala | Solusi |
 |---|---|
+| `apidisc-crawler` tidak ada di `docker compose ps` | crawler ada di profile `crawler`, jadi tidak ikut `docker compose up -d`. Jalankan `docker compose --profile crawler up -d`, atau set `COMPOSE_PROFILES=crawler` di `.env` |
+| `no such service: crawler` / `service "crawler" is not running` | sama seperti di atas — profile belum aktif saat menjalankan `exec` |
 | `PermissionError: Blocked by robots.txt` | perilaku benar; pilih sumber lain |
 | Sangat lambat | rate limit disengaja; naikkan `CRAWLER_REQUESTS_PER_MINUTE` seperlunya |
 | Hasil crawl tidak muncul di search | `php artisan search:reindex` |
 | `no spec: X` saat perintah `openapi` | wajar, tidak semua API mempublikasikan spec |
+| Sumber menjawab **HTTP 404** (mis. `data-go-id`) | portal pindah platform. Jalankan `python -m crawler probe <URL portal>` untuk menemukan endpoint aslinya, lalu `crawl <sumber> --portal-url <URL>` |
+| `probe` melaporkan platform tanpa parser | parser baru perlu ditulis mengikuti bentuk respons portal itu; tambahkan `--all` untuk melihat semua percobaan |
+| `Parsed 0 records` dari portal CKAN | bukan error — dataset di portal itu hanya berisi CSV/XLSX, dan filter hanya menyimpan yang punya endpoint |
 | `connection refused` ke postgres | di dalam Docker host-nya `postgres`, dari host `127.0.0.1` |
 
 ---

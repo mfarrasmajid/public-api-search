@@ -27,7 +27,10 @@ RUN { \
 WORKDIR /var/www/html
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+# Strip CR in case the checkout came from a Windows host with autocrlf on:
+# a CRLF script dies with "/usr/bin/env: 'bash\r': No such file or directory".
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh \
+    && chmod +x /usr/local/bin/entrypoint.sh
 
 # php-fpm runs as www-data; the bind-mounted source must stay writable.
 RUN addgroup -g 1000 -S app 2>/dev/null || true

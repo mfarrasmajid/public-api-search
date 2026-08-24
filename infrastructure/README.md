@@ -157,7 +157,48 @@ Kubernetes **tidak** diperlukan pada tahap ini; satu VPS 4 vCPU/8 GB masih cukup
 
 ---
 
-## 9. Troubleshooting
+## 9. Menjalankan tanpa Docker (fallback)
+
+Bila Docker tidak tersedia — misalnya registry diblokir kebijakan jaringan — stack ini
+tetap bisa dijalankan langsung di host. Yang perlu terpasang: PHP 8.2+, Composer,
+Node 20+, PostgreSQL 16, dan (opsional) OpenSearch.
+
+```bash
+# 1. PostgreSQL
+initdb -D ~/pgdata -U postgres --auth=trust
+pg_ctl -D ~/pgdata -l ~/pgdata/server.log -o "-p 5432" start
+psql -h 127.0.0.1 -U postgres -c "CREATE USER api_discovery WITH PASSWORD 'secret' SUPERUSER;"
+psql -h 127.0.0.1 -U postgres -c "CREATE DATABASE api_discovery OWNER api_discovery;"
+
+# 2. Backend
+cd backend
+composer install
+cp .env.example .env
+sed -i 's/DB_HOST=postgres/DB_HOST=127.0.0.1/; s/OPENSEARCH_HOST=opensearch/OPENSEARCH_HOST=127.0.0.1/' .env
+sed -i 's/CACHE_STORE=redis/CACHE_STORE=file/; s/QUEUE_CONNECTION=redis/QUEUE_CONNECTION=sync/' .env
+php artisan key:generate && php artisan migrate --seed
+php artisan search:reindex          # lewati bila OpenSearch tidak dijalankan
+php artisan serve --port=8000
+
+# 3. Frontend (terminal lain) - proxy /api menggantikan peran nginx
+cd frontend && npm install
+VITE_PROXY_TARGET=http://127.0.0.1:8000 VITE_HMR_CLIENT_PORT=5173 npm run dev
+
+# 4. Crawler (terminal lain)
+cd crawler && python -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
+export PYTHONPATH=src DATABASE_URL="postgresql://api_discovery:secret@127.0.0.1:5432/api_discovery"
+python -m crawler crawl public-apis --limit 300
+```
+
+Buka <http://localhost:5173>. Tanpa OpenSearch, search berjalan lewat fallback
+PostgreSQL (`"driver": "database"`) — hasil tetap keluar, tapi tanpa ranking relevansi,
+toleransi typo, maupun sinonim, dan query berupa kalimat panjang tidak akan menemukan
+apa pun karena pencocokannya `ILIKE` atas seluruh frasa.
+
+---
+
+## 10. Troubleshooting
 
 | Gejala | Solusi |
 |---|---|

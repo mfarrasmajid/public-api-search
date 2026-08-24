@@ -71,7 +71,7 @@ Prinsip yang dipegang (sesuai konteks project):
 
 ```
 public-api-search/
-├── backend/          Laravel 11 — REST + Search API, indexer, quality score   → backend/README.md
+├── backend/          Laravel 12 — REST + Search API, indexer, quality score   → backend/README.md
 ├── crawler/          Python 3.12 — discovery, OpenAPI parser, health checker  → crawler/README.md
 ├── frontend/         React 18 + Vite — UI pencarian                           → frontend/README.md
 ├── infrastructure/   Dockerfile, konfigurasi nginx/opensearch/postgres        → infrastructure/README.md
@@ -237,11 +237,21 @@ Tanpa `make`, semua perintah setara ada di masing-masing README folder.
 
 ### Menambah data lebih banyak (Phase 2)
 
+Crawler sengaja tidak ikut `docker compose up -d` (profile terpisah, agar stack
+Phase 1 tetap ringan), jadi nyalakan dulu profile-nya:
+
 ```bash
-docker compose --profile crawler up -d
-docker compose exec crawler python -m crawler crawl public-apis --limit 500
-docker compose exec backend php artisan search:reindex
+docker compose --profile crawler up -d     # build + jalankan container crawler
+docker compose ps crawler                  # pastikan STATUS "Up"
+docker compose --profile crawler exec crawler python -m crawler crawl public-apis --limit 500
+docker compose --profile crawler exec crawler python -m crawler crawl data-go-id --limit 200
+docker compose exec backend php artisan apis:score --reindex
 ```
+
+Sumber yang tersedia: `public-apis`, `apis-guru`, dan dua direktori pemerintah
+Indonesia berbasis CKAN — `data-go-id` (Satu Data Indonesia) dan `data-jakarta`.
+
+Atau set `COMPOSE_PROFILES=crawler` di `.env` supaya crawler selalu ikut naik.
 
 Detail: [`crawler/README.md`](crawler/README.md).
 
