@@ -84,6 +84,9 @@ docker compose logs --tail=50 backend
 | Sangat lambat | rate limit disengaja; naikkan `CRAWLER_REQUESTS_PER_MINUTE` seperlunya |
 | Hasil crawl tidak muncul di search | `php artisan search:reindex` |
 | `no spec: X` saat perintah `openapi` | wajar, tidak semua API mempublikasikan spec |
+| Sumber menjawab **HTTP 404** (mis. `data-go-id`) | portal pindah platform. Jalankan `python -m crawler probe <URL portal>` untuk menemukan endpoint aslinya, lalu `crawl <sumber> --portal-url <URL>` |
+| `probe` melaporkan platform tanpa parser | parser baru perlu ditulis mengikuti bentuk respons portal itu; tambahkan `--all` untuk melihat semua percobaan |
+| `Parsed 0 records` dari portal CKAN | bukan error — dataset di portal itu hanya berisi CSV/XLSX, dan filter hanya menyimpan yang punya endpoint |
 | `connection refused` ke postgres | di dalam Docker host-nya `postgres`, dari host `127.0.0.1` |
 
 ---

@@ -84,6 +84,10 @@ python -m crawler --help
 # Lihat sumber yang tersedia
 docker compose --profile crawler exec crawler python -m crawler sources
 
+# Cari tahu platform & endpoint API sebuah portal (wajib untuk portal pemerintah)
+docker compose --profile crawler exec crawler python -m crawler probe https://data.go.id
+docker compose --profile crawler exec crawler python -m crawler probe https://data.jakarta.go.id --all
+
 # Uji parser dulu tanpa menyentuh database
 docker compose --profile crawler exec crawler python -m crawler crawl public-apis --limit 20 --dry-run
 
@@ -92,8 +96,10 @@ docker compose --profile crawler exec crawler python -m crawler crawl public-api
 docker compose --profile crawler exec crawler python -m crawler crawl apis-guru --limit 300
 
 # Direktori pemerintah Indonesia (portal CKAN)
-docker compose --profile crawler exec crawler python -m crawler crawl data-go-id --limit 200
+# Portal open data sering pindah platform - probe dulu, lalu arahkan dengan --portal-url
 docker compose --profile crawler exec crawler python -m crawler crawl data-jakarta --limit 200
+docker compose --profile crawler exec crawler python -m crawler crawl data-go-id \
+    --portal-url https://portal-yang-benar.go.id --limit 200
 
 # Wajib setelah crawl: perbarui index
 docker compose exec backend php artisan apis:score --reindex
@@ -126,8 +132,8 @@ crawl  →  openapi  →  health  →  apis:score --reindex
 |---|---|---|---|
 | `public-apis` | github.com/public-apis/public-apis | global, ~1.400 API | satu file README di-parse lokal |
 | `apis-guru` | apis.guru | global, ribuan API | tiap entri sudah membawa URL spec OpenAPI |
-| `data-go-id` | Satu Data Indonesia | **API pemerintah Indonesia** | portal CKAN, dipaginasi |
-| `data-jakarta` | Open Data Jakarta | **API Pemprov DKI Jakarta** | portal CKAN, dipaginasi |
+| `data-go-id` | Satu Data Indonesia | **API pemerintah Indonesia** | ⚠️ portal sudah pindah platform — lihat catatan di bawah |
+| `data-jakarta` | Open Data Jakarta | **API Pemprov DKI Jakarta** | portal CKAN, dipaginasi, belum diverifikasi |
 
 ### Tentang portal CKAN (`data-go-id`, `data-jakarta`)
 
@@ -151,11 +157,23 @@ docker compose --profile crawler exec crawler python -m crawler crawl data-go-id
 Slug disimpan dengan awalan nama portal (`data-go-id-<nama-dataset>`) supaya dua
 portal yang menerbitkan dataset dengan judul sama tidak saling menimpa.
 
-> **Belum diverifikasi ke portal hidup.** Parser ini ditulis mengikuti spesifikasi
-> CKAN 3 Action API dan diuji dengan fixture serta HTTP tiruan, tetapi portal
-> `data.go.id` / `data.jakarta.go.id` tidak dapat dijangkau dari environment
-> tempat kode ini dikembangkan. Jalankan `--dry-run` sekali untuk memastikan
-> bentuk responsnya cocok sebelum menulis ke database.
+> ### ⚠️ data.go.id sudah tidak memakai CKAN
+>
+> Dikonfirmasi lewat percobaan nyata: `https://data.go.id/api/3/action/package_search`
+> menjawab **HTTP 404**. Portal Satu Data Indonesia sudah pindah platform, jadi
+> slug `data-go-id` **tidak akan langsung berfungsi** dengan URL bawaannya.
+>
+> Cari endpoint aslinya dengan perintah `probe`, lalu arahkan crawler ke sana:
+>
+> ```bash
+> python -m crawler probe https://data.go.id
+> python -m crawler crawl data-go-id --portal-url <URL_YANG_BENAR> --limit 50 --dry-run
+> ```
+>
+> Kalau `probe` melaporkan platform yang belum punya parser (mis. OpenDataSoft
+> atau Socrata), kirimkan tabel hasilnya — parser barunya perlu ditulis mengikuti
+> bentuk respons portal tersebut. `data.jakarta.go.id` juga belum diverifikasi;
+> jalankan `probe` untuknya sebelum crawl.
 
 ### Menambah portal CKAN lain
 
